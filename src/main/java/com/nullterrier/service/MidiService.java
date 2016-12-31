@@ -12,4 +12,7 @@ public interface MidiService {
     void openMidiDevices();
     void closeDevices();
     void sendSomeMidiNotes();
+
+    boolean haveOpenOutDevice();
+    boolean haveOpenInDevice();
 }

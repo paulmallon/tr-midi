@@ -1,17 +1,14 @@
 package com.nullterrier.service;
 
-import com.sun.media.sound.MidiInDeviceProvider;
-import com.sun.media.sound.MidiOutDeviceProvider;
-import com.sun.media.sound.RealTimeSequencerProvider;
-import com.sun.media.sound.SoftSynthesizer;
+import com.ecyrd.speed4j.StopWatch;
+import com.ecyrd.speed4j.StopWatchFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PreDestroy;
 import javax.sound.midi.*;
-
-import static sun.audio.AudioDevice.device;
 
 /**
  * Created by pm on 2016-12-13.
@@ -20,26 +17,61 @@ import static sun.audio.AudioDevice.device;
 public class DefaultMidiService implements MidiService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultMidiService.class);
+    StopWatchFactory myStopWatchFactory = StopWatchFactory.getInstance("loggingFactory");
 
-
-    @Value("${in:}")
+    @Value("${in:\"MIDIIN2 (usbmidi2 master)\"}")
     private String midiInName;
 
-    @Value("${out:}")
-    private String midiOutname;
+    @Value("${out:\"MIDIOUT2 (usbmidi2 master)\"}")
+    private String midiOutName;
+
+    @Value("${logData:false}")
+    private String logData;
 
     private MidiDevice.Info[] midiDeviceInfos;
     private MidiDevice midiInDevice;
     private MidiDevice midiOutDevice;
     private MidiDevice.Info midiOutDeviceInfo;
     private MidiDevice.Info midiInDeviceInfo;
-    Receiver receiver;
+    private ShortMessage dummyMessage;
+
+    private final boolean verboseLogging;
+
+    public DefaultMidiService() {
+        if (logData != null) {
+            if (logData.toLowerCase().equals("true")) {
+                verboseLogging = true;
+            } else {
+                verboseLogging = false;
+            }
+        } else {
+            verboseLogging = false;
+        }
+
+//        if (this.midiOutName.isEmpty() || this.midiInName.isEmpty()) {
+//            log.info("MIDI device must be specified by --in=\"some midi device name\" and --out=\"some midi device name\" ");
+//            return;
+//        } else {
+//            log.info("MIDI devices from args. IN: " + midiInName +  ", OUT: " + midiOutName);
+//
+//        }
+
+
+
+        try {
+            dummyMessage = new ShortMessage();
+            dummyMessage.setMessage(ShortMessage.NOTE_ON, 0, 72, 93);
+        } catch (InvalidMidiDataException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
-    public void listAllMidiDevices()  {
+    public void listAllMidiDevices() {
         midiDeviceInfos = MidiSystem.getMidiDeviceInfo();
 
         StringBuilder sb = new StringBuilder();
+
         for (MidiDevice.Info info : midiDeviceInfos) {
             try {
                 MidiDevice device = MidiSystem.getMidiDevice(info);
@@ -53,137 +85,103 @@ public class DefaultMidiService implements MidiService {
 
     @Override
     public void openMidiDevices() {
-        if (this.midiOutname.isEmpty() || this.midiInName.isEmpty()) {
-            log.info("MIDI device must be specified by --in=\"some midi device name\" and --out=\"some midi device name\" ");
-            return;
-        }
 
-        for (MidiDevice.Info i : midiDeviceInfos) {
-            if (i.getName().equals(this.midiOutname)) {
-                OpenMidiOutDevice(i);
-                continue;
-            }
 
-            if (i.getName().equals(this.midiInName)) {
-                getMidiInDevice(i);
-                continue;
-            }
-
+        for (MidiDevice.Info deviceInfo : midiDeviceInfos) {
             if (midiInDevice != null && midiOutDevice != null) {
                 break;
+            }
+
+            if (deviceInfo.getName().equals(this.midiOutName)) {
+                try {
+                    MidiDevice device = MidiSystem.getMidiDevice(deviceInfo);
+
+                    if (device.getMaxReceivers() == -1) {
+                        if (!(device.isOpen())) {
+                            device.open();
+
+                            log.info("MIDI OUT port " + deviceInfo.getName() + " opened.");
+
+                            midiOutDevice = device;
+                            midiOutDeviceInfo = deviceInfo;
+                        } else {
+                            throw new MidiDeviceAlreadyOpenedException("MIDI OUT port " + deviceInfo.getName() + " is already opened by somwone else.");
+                        }
+                    }
+                } catch (MidiDeviceAlreadyOpenedException e) {
+                    log.warn("MIDI OUT device is already opened. \n" + e.getStackTrace());
+                } catch (MidiUnavailableException e) {
+                    log.warn("MIDI OUT device is unavailable" + e.getStackTrace());
+                }
+            }
+
+            if (deviceInfo.getName().equals(this.midiInName)) {
+                try {
+                    MidiDevice device = MidiSystem.getMidiDevice(deviceInfo);
+
+                    if (device.getMaxTransmitters() == -1) {
+
+                        if (!(device.isOpen())) {
+                            device.open();
+                            log.info("MIDI IN port " + deviceInfo.getName() + " opened.");
+
+                            midiInDevice = device;
+                            midiInDeviceInfo = deviceInfo;
+
+                            Transmitter transmitter = midiInDevice.getTransmitter();
+                            transmitter.setReceiver(new MidiInputReceiver(this, midiInDevice.getDeviceInfo().getName(), verboseLogging));
+                        } else {
+                            throw new MidiDeviceAlreadyOpenedException("MIDI IN port is already " + deviceInfo.getName() + " opened somewhere else.");
+                        }
+                    }
+                } catch (MidiDeviceAlreadyOpenedException e) {
+                    log.warn("MIDI IN device is already opened. \n" + e.getStackTrace());
+                } catch (MidiUnavailableException e) {
+                    log.warn("MIDI IN device is unavailable" + e.getStackTrace());
+                }
             }
         }
 
         if (midiInDevice != null && midiOutDevice != null) {
-            log.info("Sucessfully opend MIDI IN " + midiInName + " and OUT " + midiOutname);
+            log.info("Successfully opened MIDI IN " + midiInName + " and OUT " + midiOutName);
         } else {
-            log.warn("Could not oppen both MIDI in and out device ");
+            log.warn("Could not opened both MIDI in and out device ");
         }
-
     }
 
     @Override
     public void sendSomeMidiNotes() {
-        ShortMessage myMsg = new ShortMessage();
-
+        StopWatch sw = myStopWatchFactory.getStopWatch();
         try {
 
-                myMsg.setMessage(ShortMessage.NOTE_ON, 0, 72, 93);
-                midiOutDevice.getReceiver().send(myMsg, -1); // -1 means no time stamp
-                Thread.sleep(500);
-                myMsg.setMessage(ShortMessage.NOTE_OFF, 0, 72, 93);
-                midiOutDevice.getReceiver().send(myMsg, -1); // -1 means no time stamp
-
+            midiOutDevice.getReceiver().send(dummyMessage, -1); // -1 means no time stamp
+            // Thread.sleep(500);
+            //dummyMessage.setMessage(ShortMessage.NOTE_OFF, 0, 72, 93);
+            //midiOutDevice.getReceiver().send(dummyMessage, -1); // -1 means no time stamp
         } catch (MidiUnavailableException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (InvalidMidiDataException e) {
             e.printStackTrace();
         }
+
+        sw.stop("sendingMidiMessage:done");
     }
 
-    private boolean getMidiInDevice(MidiDevice.Info i) {
-        midiInDeviceInfo = i;
-        MidiDevice d;
-        try {
-            d = MidiSystem.getMidiDevice(i);
-        } catch (MidiUnavailableException e) {
-            log.warn("MidiUnavailableException exception caught while tryging to get MIDI device " + i.getName());
+    @Override
+    public boolean haveOpenOutDevice() {
+        return isDeviceOpen(midiOutDevice);
+    }
+
+    private boolean isDeviceOpen(MidiDevice midiDevice) {
+        if (midiDevice != null && midiDevice.isOpen()) {
+            return true;
+        } else {
             return false;
         }
-        try {
-            if (d.getMaxTransmitters() == -1) {
-                midiInDevice = d;
-                if (!(midiInDevice.isOpen())) {
-                    midiInDevice.open();
-                    log.info("MIDI INT port " + i.getName() + " opened.");
-                    Transmitter transmitter = midiInDevice.getTransmitter();
-                    transmitter.setReceiver(new MidiInputReceiver(midiInDevice.getDeviceInfo().getName()));
-                }
-            }
-        } catch (MidiUnavailableException e) {
-            log.warn("MidiUnavailableException exception caught while opening MIDI IN port on device " + i.getName());
-            midiInDevice = null;
-        }
-
-        return true;
     }
 
-    private boolean OpenMidiOutDevice(MidiDevice.Info i) {
-        midiOutDeviceInfo = i;
-        MidiDevice d;
-        try {
-            d = MidiSystem.getMidiDevice(i);
-        } catch (MidiUnavailableException e) {
-            log.warn("MidiUnavailableException exception caught while tryging to get MIDI device " + i.getName());
-            return false;
-        }
-
-        try {
-            if (d.getMaxReceivers() == -1) {
-                midiOutDevice = d;
-                if (!(midiOutDevice.isOpen())) {
-                    midiOutDevice.open();
-                    log.info("MIDI OUT port " + i.getName() + " opened.");
-
-                }
-            }
-        } catch (MidiUnavailableException e) {
-            log.warn("MidiUnavailableException exception caught while opening MIDI OUT port on device " + i.getName());
-            midiOutDevice = null;
-        }
-
-        return true;
+    @Override
+    public boolean haveOpenInDevice() {
+        return isDeviceOpen(midiInDevice);
     }
-
-
-
-    private class MidiInputReceiver implements Receiver {
-        private final Logger log = LoggerFactory.getLogger(MidiInputReceiver.class);
-
-        public MidiInputReceiver(String name) {
-            log.info("New MIDI IN receiver created for " + name);
-        }
-
-        @Override
-        public void send(MidiMessage message, long timeStamp) {
-            log.info("MIDI message received");
-
-            byte[] bytes = message.getMessage();
-            for(int i=0;i<message.getLength();i++) {
-                log.info(" Byte " + i + ": "+ bytes[i]);
-            }
-
-        }
-
-        @Override
-        public void close() {
-
-        }
-    }
-
-
 
     @Override
     public void closeDevices() {
