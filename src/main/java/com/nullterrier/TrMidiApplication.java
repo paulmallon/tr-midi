@@ -1,5 +1,7 @@
 package com.nullterrier;
 
+import com.ecyrd.speed4j.StopWatch;
+import com.ecyrd.speed4j.StopWatchFactory;
 import com.nullterrier.service.DefaultMidiService;
 import com.nullterrier.service.MidiService;
 import org.slf4j.Logger;
@@ -17,8 +19,6 @@ public class TrMidiApplication implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultMidiService.class);
 
-    private MidiDevice device;
-
     public static void main(String[] args) {
         SpringApplication.run(TrMidiApplication.class, args);
     }
@@ -28,14 +28,15 @@ public class TrMidiApplication implements CommandLineRunner {
     private MidiService midiService;
 
     @Override
-    public void run(String... strings) {
-
+    public void run(String... strings) throws InterruptedException {
         midiService.listAllMidiDevices();
-
         midiService.openMidiDevices();
-
-        midiService.sendSomeMidiNotes();
-
+//        if (midiService.haveOpenOutDevice()) {
+//            while (true) {
+//                midiService.sendSomeMidiNotes();
+//                Thread.sleep(100);
+//            }
+//        }
     }
 
 
