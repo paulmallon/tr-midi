@@ -27,16 +27,23 @@ public class TrMidiApplication implements CommandLineRunner {
     @Autowired
     private MidiService midiService;
 
+
     @Override
     public void run(String... strings) throws InterruptedException {
+
+        log.info("MidiService start up arguments: ");
+        log.info("Usage: --in=\"MIDIIN2 (usbmidi2 master)\" --out=\"MIDIOUT2 (usbmidi2 master)\" --logData=true");
+
+
+        midiService.init();
         midiService.listAllMidiDevices();
         midiService.openMidiDevices();
-//        if (midiService.haveOpenOutDevice()) {
-//            while (true) {
-//                midiService.sendSomeMidiNotes();
-//                Thread.sleep(100);
-//            }
-//        }
+        if (midiService.haveOpenOutDevice()) {
+            while (true) {
+                midiService.sendSomeMidiNotes();
+                Thread.sleep(10);
+            }
+        }
     }
 
 

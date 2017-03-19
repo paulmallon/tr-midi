@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PreDestroy;
 import javax.sound.midi.*;
 
 /**
@@ -25,58 +24,61 @@ public class DefaultMidiService implements MidiService {
     @Value("${out:\"MIDIOUT2 (usbmidi2 master)\"}")
     private String midiOutName;
 
-    @Value("${logData:false}")
+    @Value("${logData:true}")
     private String logData;
 
-    private MidiDevice.Info[] midiDeviceInfos;
+
     private MidiDevice midiInDevice;
     private MidiDevice midiOutDevice;
+
     private MidiDevice.Info midiOutDeviceInfo;
     private MidiDevice.Info midiInDeviceInfo;
+
     private ShortMessage dummyMessage;
 
-    private final boolean verboseLogging;
+    private boolean verboseLogging;
+
 
     public DefaultMidiService() {
-        if (logData != null) {
-            if (logData.toLowerCase().equals("true")) {
-                verboseLogging = true;
-            } else {
-                verboseLogging = false;
-            }
+
+    }
+
+
+    @Override
+    public void init() {
+        if (logData.toLowerCase().equals("true")) {
+            verboseLogging = true;
+            log.info("Verbose MIDI data logging enabled.");
         } else {
             verboseLogging = false;
         }
 
-//        if (this.midiOutName.isEmpty() || this.midiInName.isEmpty()) {
-//            log.info("MIDI device must be specified by --in=\"some midi device name\" and --out=\"some midi device name\" ");
-//            return;
-//        } else {
-//            log.info("MIDI devices from args. IN: " + midiInName +  ", OUT: " + midiOutName);
-//
-//        }
-
-
+        if (this.midiOutName.isEmpty() || this.midiInName.isEmpty()) {
+            log.info("MIDI device must be specified by --in=\"some midi device name\" and --out=\"some midi device name\" ");
+            return;
+        } else {
+            log.info("MIDI devices from args. IN: " + midiInName + ", OUT: " + midiOutName);
+        }
 
         try {
             dummyMessage = new ShortMessage();
             dummyMessage.setMessage(ShortMessage.NOTE_ON, 0, 72, 93);
         } catch (InvalidMidiDataException e) {
-            e.printStackTrace();
+            log.info("InvalidMidiDataExceptio caught" + e.getMessage());
         }
     }
 
     @Override
     public void listAllMidiDevices() {
-        midiDeviceInfos = MidiSystem.getMidiDeviceInfo();
+        MidiDevice.Info[] midiDeviceInfo = MidiSystem.getMidiDeviceInfo();
 
         StringBuilder sb = new StringBuilder();
 
-        for (MidiDevice.Info info : midiDeviceInfos) {
+        for (MidiDevice.Info info : midiDeviceInfo) {
             try {
-                MidiDevice device = MidiSystem.getMidiDevice(info);
+                MidiSystem.getMidiDevice(info); //just call the method to catch any exceptions it my throw
             } catch (MidiUnavailableException e) {
-                log.info("Unable to obtain midi device " + info.getName());
+                log.info("Unable to obtain midi device " + info.getName() + ". MidiUnavailableException caught. ");
             }
             sb.append(info.toString() + ", ");
         }
@@ -85,9 +87,9 @@ public class DefaultMidiService implements MidiService {
 
     @Override
     public void openMidiDevices() {
+        MidiDevice.Info[] midiDeviceInfo = MidiSystem.getMidiDeviceInfo();
 
-
-        for (MidiDevice.Info deviceInfo : midiDeviceInfos) {
+        for (MidiDevice.Info deviceInfo : midiDeviceInfo) {
             if (midiInDevice != null && midiOutDevice != null) {
                 break;
             }
@@ -109,9 +111,9 @@ public class DefaultMidiService implements MidiService {
                         }
                     }
                 } catch (MidiDeviceAlreadyOpenedException e) {
-                    log.warn("MIDI OUT device is already opened. \n" + e.getStackTrace());
+                    log.warn("MIDI OUT device " + deviceInfo.getName() + "is already opened. \n" + e.getStackTrace());
                 } catch (MidiUnavailableException e) {
-                    log.warn("MIDI OUT device is unavailable" + e.getStackTrace());
+                    log.warn("MIDI OUT device " + deviceInfo.getName() + "is unavailable" + e.getStackTrace());
                 }
             }
 
@@ -135,9 +137,9 @@ public class DefaultMidiService implements MidiService {
                         }
                     }
                 } catch (MidiDeviceAlreadyOpenedException e) {
-                    log.warn("MIDI IN device is already opened. \n" + e.getStackTrace());
+                    log.warn("MIDI IN device " + deviceInfo.getName() + "is already opened. \n" + e.getStackTrace());
                 } catch (MidiUnavailableException e) {
-                    log.warn("MIDI IN device is unavailable" + e.getStackTrace());
+                    log.warn("MIDI IN device " + deviceInfo.getName() + " is unavailable" + e.getStackTrace());
                 }
             }
         }
@@ -153,16 +155,11 @@ public class DefaultMidiService implements MidiService {
     public void sendSomeMidiNotes() {
         StopWatch sw = myStopWatchFactory.getStopWatch();
         try {
-
             midiOutDevice.getReceiver().send(dummyMessage, -1); // -1 means no time stamp
-            // Thread.sleep(500);
-            //dummyMessage.setMessage(ShortMessage.NOTE_OFF, 0, 72, 93);
-            //midiOutDevice.getReceiver().send(dummyMessage, -1); // -1 means no time stamp
         } catch (MidiUnavailableException e) {
             e.printStackTrace();
         }
-
-        sw.stop("sendingMidiMessage:done");
+        sw.stop("SendingDummyMidiMessage");
     }
 
     @Override
