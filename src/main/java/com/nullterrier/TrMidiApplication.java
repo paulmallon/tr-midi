@@ -7,6 +7,7 @@ import com.nullterrier.service.MidiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -16,6 +17,9 @@ import javax.sound.midi.MidiDevice;
 
 @SpringBootApplication
 public class TrMidiApplication implements CommandLineRunner {
+
+    @Value("${dummy:true}")
+    private boolean dummy;
 
     private static final Logger log = LoggerFactory.getLogger(DefaultMidiService.class);
 
@@ -31,14 +35,12 @@ public class TrMidiApplication implements CommandLineRunner {
     @Override
     public void run(String... strings) throws InterruptedException {
 
-        log.info("MidiService start up arguments: ");
-        log.info("Usage: --in=\"MIDIIN2 (usbmidi2 master)\" --out=\"MIDIOUT2 (usbmidi2 master)\" --logData=true");
-
-
         midiService.init();
         midiService.listAllMidiDevices();
-        midiService.openMidiDevices();
-        if (midiService.haveOpenOutDevice()) {
+
+        boolean openMidiDevices = midiService.openMidiDevices();
+
+        if (openMidiDevices && dummy ) {
             while (true) {
                 midiService.sendSomeMidiNotes();
                 Thread.sleep(10);

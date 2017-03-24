@@ -18,10 +18,10 @@ public class DefaultMidiService implements MidiService {
     private static final Logger log = LoggerFactory.getLogger(DefaultMidiService.class);
     StopWatchFactory myStopWatchFactory = StopWatchFactory.getInstance("loggingFactory");
 
-    @Value("${in:\"MIDIIN2 (usbmidi2 master)\"}")
+    @Value("${in:\"empty\"}")
     private String midiInName;
 
-    @Value("${out:\"MIDIOUT2 (usbmidi2 master)\"}")
+    @Value("${out:\"empty\"}")
     private String midiOutName;
 
     @Value("${logData:true}")
@@ -57,7 +57,7 @@ public class DefaultMidiService implements MidiService {
             log.info("MIDI device must be specified by --in=\"some midi device name\" and --out=\"some midi device name\" ");
             return;
         } else {
-            log.info("MIDI devices from args. IN: " + midiInName + ", OUT: " + midiOutName);
+            log.info("MIDI devices from application.properties IN: " + midiInName + ", OUT: " + midiOutName);
         }
 
         try {
@@ -86,7 +86,7 @@ public class DefaultMidiService implements MidiService {
     }
 
     @Override
-    public void openMidiDevices() {
+    public boolean openMidiDevices() {
         MidiDevice.Info[] midiDeviceInfo = MidiSystem.getMidiDeviceInfo();
 
         for (MidiDevice.Info deviceInfo : midiDeviceInfo) {
@@ -102,7 +102,7 @@ public class DefaultMidiService implements MidiService {
                         if (!(device.isOpen())) {
                             device.open();
 
-                            log.info("MIDI OUT port " + deviceInfo.getName() + " opened.");
+                            //log.info("MIDI OUT port " + deviceInfo.getName() + " opened.");
 
                             midiOutDevice = device;
                             midiOutDeviceInfo = deviceInfo;
@@ -125,7 +125,7 @@ public class DefaultMidiService implements MidiService {
 
                         if (!(device.isOpen())) {
                             device.open();
-                            log.info("MIDI IN port " + deviceInfo.getName() + " opened.");
+                           // log.info("MIDI IN port " + deviceInfo.getName() + " opened.");
 
                             midiInDevice = device;
                             midiInDeviceInfo = deviceInfo;
@@ -144,11 +144,22 @@ public class DefaultMidiService implements MidiService {
             }
         }
 
-        if (midiInDevice != null && midiOutDevice != null) {
-            log.info("Successfully opened MIDI IN " + midiInName + " and OUT " + midiOutName);
+        if (midiOutDevice != null) {
+            log.info("Successfully opened MIDI OUT " + midiOutName);
         } else {
-            log.warn("Could not opened both MIDI in and out device ");
+            log.warn("Could not opened MIDI OUT device {}", midiOutName);
+            return false;
         }
+
+
+        if (midiInDevice != null) {
+            log.info("Successfully opened MIDI IN " + midiInName);
+        } else {
+            log.warn("Could not MIDI in device {}", midiInName);
+            return false;
+        }
+
+        return true;
     }
 
     @Override

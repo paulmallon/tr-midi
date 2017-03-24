@@ -1,0 +1,63 @@
+#!/bin/sh
+
+
+
+# Intructions:
+#
+# Create a file under  /etc/init.d/   with nano or vi and paste the example script below. ex.  sudo vi /etc/init.d/mytestserv
+# Modify the SERVICE_NAME, PATH_TO_JAR, and choose a PID_PATH_NAME for the file you are going to use to store your service ID.
+# Write the file and give execution permisions ex. sudo chmod +x /etc/init.d/mytestserv
+# Test that it runs ex. sudo service mytestserv start
+# Test that it stops ex. sudo service mytestserv stop
+# Test that it restarts ex. sudo service mytestserv restart
+
+
+
+
+SERVICE_NAME=tr-midi
+PATH_TO_JAR=/usr/local/tr-midi/tr-midi.jar
+PID_PATH_NAME=/tmp/re-midi-pid
+IN_DEVICE="master [hw:1,0,0]"
+OUT_DEVEIVE="master [hw:1,0,0]"
+
+case $1 in
+    start)
+        echo "Starting $SERVICE_NAME ..."
+        if [ ! -f $PID_PATH_NAME ]; then
+           nohup java -jar $PATH_TO_JAR --in=IN_DEVICE --out=OUT_DEVEIVE /tmp 2>> /dev/null >> /dev/null &
+	   #java -jar $PATH_TO_JAR --in=Gervill --out='Real Time Sequencer'
+                        echo $! > $PID_PATH_NAME
+            echo "$SERVICE_NAME started ..."
+        else
+            echo "$SERVICE_NAME is already running ..."
+        fi
+    ;;
+    stop)
+        if [ -f $PID_PATH_NAME ]; then
+            PID=$(cat $PID_PATH_NAME);
+            echo "$SERVICE_NAME stoping ..."
+            kill $PID;
+            echo "$SERVICE_NAME stopped ..."
+            rm $PID_PATH_NAME
+        else
+            echo "$SERVICE_NAME is not running ..."
+        fi
+    ;;
+    restart)
+        if [ -f $PID_PATH_NAME ]; then
+            PID=$(cat $PID_PATH_NAME);
+            echo "$SERVICE_NAME stopping ...";
+            kill $PID;
+            echo "$SERVICE_NAME stopped ...";
+            rm $PID_PATH_NAME
+            echo "$SERVICE_NAME starting ..."
+            nohup java -jar $PATH_TO_JAR --in=IN_DEVICE --out=OUT_DEVEIVE /tmp 2>> /dev/null >> /dev/null &
+            echo "$SERVICE_NAME started ..."
+        else
+            echo "$SERVICE_NAME is not running ..."
+        fi
+    ;;
+esac
+
+
+
