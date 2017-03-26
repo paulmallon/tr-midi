@@ -2,12 +2,21 @@ package com.nullterrier.service;
 
 import com.ecyrd.speed4j.StopWatch;
 import com.ecyrd.speed4j.StopWatchFactory;
+import io.github.leovr.rtipmidi.AppleMidiServer;
+import io.github.leovr.rtipmidi.MidiDeviceAppleMidiSession;
+import io.github.leovr.rtipmidi.MidiReceiverAppleMidiSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.sound.midi.*;
+import java.io.IOException;
+import java.net.InetAddress;
+
+
+import javax.jmdns.JmDNS;
+import javax.jmdns.ServiceInfo;
 
 /**
  * Created by pm on 2016-12-13.
@@ -27,9 +36,13 @@ public class DefaultMidiService implements MidiService {
     @Value("${logData:true}")
     private String logData;
 
+    @Value("${apple:\"PuckStudio-PC\"}")
+    private String apple;
+
 
     private MidiDevice midiInDevice;
     private MidiDevice midiOutDevice;
+    private MidiDevice midiAppleDevice;
 
     private MidiDevice.Info midiOutDeviceInfo;
     private MidiDevice.Info midiInDeviceInfo;
@@ -189,6 +202,60 @@ public class DefaultMidiService implements MidiService {
     @Override
     public boolean haveOpenInDevice() {
         return isDeviceOpen(midiInDevice);
+    }
+
+    @Override
+    public MidiDevice getOutDevice() {
+        return midiOutDevice;
+    }
+
+    @Override
+    public MidiDevice getInDevice() {
+        return midiInDevice;
+    }
+
+    @Override
+    public void initAppleMidi() {
+        try {
+            JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
+
+            ServiceInfo serviceInfo =
+                    ServiceInfo.create("_apple-midi._udp.local.", "rtpMidiJava", 50004, "apple-midi");
+            jmdns.registerService(serviceInfo);
+
+            AppleMidiServer server = new AppleMidiServer();
+
+            MidiDevice.Info[] midiDeviceInfo = MidiSystem.getMidiDeviceInfo();
+            for (MidiDevice.Info deviceInfo : midiDeviceInfo) {
+                if (deviceInfo.getName().equals(this.apple)) {
+                    try {
+                        MidiDevice device = MidiSystem.getMidiDevice(deviceInfo);
+
+                        midiAppleDevice = device;
+                        break;
+                    } catch (MidiUnavailableException e) {
+                        log.warn("MIDI APPLE device " + deviceInfo.getName() + " is unavailable" + e.getStackTrace());
+                    }
+                }
+            }
+
+            if(midiAppleDevice == null) {
+                log.warn("Can't find apple midi device {}.", this.apple);
+                return;
+            }
+
+            //server.addAppleMidiSession(new MidiDeviceAppleMidiSession(midiAppleDevice));
+            server.addAppleMidiSession( new MidiReceiverAppleMidiSession( new MidiInputReceiver(this, midiAppleDevice.getDeviceInfo().getName(), verboseLogging)));
+
+            server.start();
+
+            System.in.read();
+
+            server.stop();
+        } catch (final IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     @Override

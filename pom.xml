@@ -25,6 +25,7 @@
 	</properties>
 
 	<dependencies>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
@@ -36,7 +37,6 @@
 			<scope>test</scope>
 		</dependency>
 
-
 		<dependency>
 			<groupId>com.ecyrd.speed4j</groupId>
 			<artifactId>speed4j</artifactId>
@@ -44,10 +44,18 @@
 		</dependency>
 
 		<dependency>
-			<groupId>de.humatic.nmj</groupId>
-			<artifactId>nmj</artifactId>
-			<version>1.0</version>
+			<groupId>io.github.leovr</groupId>
+			<artifactId>rtp-midi</artifactId>
+			<version>1.0.3</version>
 		</dependency>
+
+
+	<dependency>
+		<groupId>org.jmdns</groupId>
+		<artifactId>jmdns</artifactId>
+		<version>3.5.1</version>
+	</dependency>
+
 	</dependencies>
 
 	<build>
