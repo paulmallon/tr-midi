@@ -19,6 +19,9 @@ public class TrMidiApplication implements CommandLineRunner {
     @Value("${dummy:true}")
     private boolean dummy;
 
+    @Value("${list:false}")
+    private boolean listDevices;
+
     private static final Logger log = LoggerFactory.getLogger(DefaultMidiService.class);
 
     public static void main(String[] args) {
@@ -35,19 +38,18 @@ public class TrMidiApplication implements CommandLineRunner {
 
         midiService.init();
 
-        midiService.listAllMidiDevices();
+        if(listDevices) {
+            midiService.listAllMidiDevices();
+        }
 
+        midiService.initAppleMidi();
 
         boolean openMidiDevices = midiService.openMidiDevices();
-
         if (openMidiDevices && dummy ) {
-            midiService.initAppleMidi();
-
-
-            while (true) {
-                midiService.sendSomeMidiNotes();
-                Thread.sleep(10);
-            }
+        while (true) {
+            midiService.sendSomeMidiNotes();
+             Thread.sleep(10);
+          }
         }
     }
 
@@ -55,5 +57,6 @@ public class TrMidiApplication implements CommandLineRunner {
     @PreDestroy
     public void cleanUp() {
         midiService.closeDevices();
+        midiService.stopAppleMidiI();
     }
 }

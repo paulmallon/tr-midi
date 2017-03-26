@@ -3,7 +3,6 @@ package com.nullterrier.service;
 import com.ecyrd.speed4j.StopWatch;
 import com.ecyrd.speed4j.StopWatchFactory;
 import io.github.leovr.rtipmidi.AppleMidiServer;
-import io.github.leovr.rtipmidi.MidiDeviceAppleMidiSession;
 import io.github.leovr.rtipmidi.MidiReceiverAppleMidiSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,10 +49,10 @@ public class DefaultMidiService implements MidiService {
     private ShortMessage dummyMessage;
 
     private boolean verboseLogging;
+    private AppleMidiServer appleMidiServer;
 
 
     public DefaultMidiService() {
-
     }
 
 
@@ -67,10 +66,15 @@ public class DefaultMidiService implements MidiService {
         }
 
         if (this.midiOutName.isEmpty() || this.midiInName.isEmpty()) {
-            log.info("MIDI device must be specified by --in=\"some midi device name\" and --out=\"some midi device name\" ");
+            log.info("Missing config for midi device. MIDI device must be specified applicagtion.properties");
             return;
         } else {
             log.info("MIDI devices from application.properties IN: " + midiInName + ", OUT: " + midiOutName);
+
+        }
+
+        if(!apple.isEmpty()) {
+            log.info("Apple MIDI devices from application.properties IN: " + apple);
         }
 
         try {
@@ -114,9 +118,6 @@ public class DefaultMidiService implements MidiService {
                     if (device.getMaxReceivers() == -1) {
                         if (!(device.isOpen())) {
                             device.open();
-
-                            //log.info("MIDI OUT port " + deviceInfo.getName() + " opened.");
-
                             midiOutDevice = device;
                             midiOutDeviceInfo = deviceInfo;
                         } else {
@@ -138,11 +139,8 @@ public class DefaultMidiService implements MidiService {
 
                         if (!(device.isOpen())) {
                             device.open();
-                           // log.info("MIDI IN port " + deviceInfo.getName() + " opened.");
-
                             midiInDevice = device;
                             midiInDeviceInfo = deviceInfo;
-
                             Transmitter transmitter = midiInDevice.getTransmitter();
                             transmitter.setReceiver(new MidiInputReceiver(this, midiInDevice.getDeviceInfo().getName(), verboseLogging));
                         } else {
@@ -160,15 +158,14 @@ public class DefaultMidiService implements MidiService {
         if (midiOutDevice != null) {
             log.info("Successfully opened MIDI OUT " + midiOutName);
         } else {
-            log.warn("Could not opened MIDI OUT device {}", midiOutName);
+            log.warn("Could not open MIDI OUT device {}", midiOutName);
             return false;
         }
-
 
         if (midiInDevice != null) {
             log.info("Successfully opened MIDI IN " + midiInName);
         } else {
-            log.warn("Could not MIDI in device {}", midiInName);
+            log.warn("Could not open MIDI in device {}", midiInName);
             return false;
         }
 
@@ -215,6 +212,11 @@ public class DefaultMidiService implements MidiService {
     }
 
     @Override
+    public void stopAppleMidiI() {
+        appleMidiServer.stop();
+    }
+
+    @Override
     public void initAppleMidi() {
         try {
             JmDNS jmdns = JmDNS.create(InetAddress.getLocalHost());
@@ -223,7 +225,7 @@ public class DefaultMidiService implements MidiService {
                     ServiceInfo.create("_apple-midi._udp.local.", "rtpMidiJava", 50004, "apple-midi");
             jmdns.registerService(serviceInfo);
 
-            AppleMidiServer server = new AppleMidiServer();
+            appleMidiServer = new AppleMidiServer();
 
             MidiDevice.Info[] midiDeviceInfo = MidiSystem.getMidiDeviceInfo();
             for (MidiDevice.Info deviceInfo : midiDeviceInfo) {
@@ -244,14 +246,10 @@ public class DefaultMidiService implements MidiService {
                 return;
             }
 
-            //server.addAppleMidiSession(new MidiDeviceAppleMidiSession(midiAppleDevice));
-            server.addAppleMidiSession( new MidiReceiverAppleMidiSession( new MidiInputReceiver(this, midiAppleDevice.getDeviceInfo().getName(), verboseLogging)));
+            //appleMidiServer.addAppleMidiSession(new MidiDeviceAppleMidiSession(midiAppleDevice));
+            appleMidiServer.addAppleMidiSession( new MidiReceiverAppleMidiSession( new MidiInputReceiver(this, midiAppleDevice.getDeviceInfo().getName(), verboseLogging)));
 
-            server.start();
-
-            System.in.read();
-
-            server.stop();
+            appleMidiServer.start();
         } catch (final IOException e) {
             e.printStackTrace();
         }
@@ -269,6 +267,11 @@ public class DefaultMidiService implements MidiService {
         if (midiInDevice != null && midiInDevice.isOpen()) {
             midiInDevice.close();
             log.info("Midi in device " + midiInDeviceInfo.getName() + " closed.");
+        }
+
+        if (midiAppleDevice != null && midiInDevice.isOpen()) {
+            midiInDevice.close();
+            log.info("Apple Midi device " + midiInDeviceInfo.getName() + " closed.");
         }
     }
 }

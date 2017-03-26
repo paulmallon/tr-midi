@@ -19,5 +19,7 @@ public interface MidiService {
     MidiDevice getOutDevice();
     MidiDevice getInDevice();
 
+    void stopAppleMidiI();
+
     void initAppleMidi();
 }
