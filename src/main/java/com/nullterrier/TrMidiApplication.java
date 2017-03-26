@@ -42,12 +42,14 @@ public class TrMidiApplication implements CommandLineRunner {
             midiService.listAllMidiDevices();
         }
 
-        midiService.initAppleMidi();
 
         boolean openMidiDevices = midiService.openMidiDevices();
+
+        midiService.initAppleMidi();
+
         if (openMidiDevices && dummy ) {
         while (true) {
-            midiService.sendSomeMidiNotes();
+          //  midiService.sendSomeMidiNotes();
              Thread.sleep(10);
           }
         }

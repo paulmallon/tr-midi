@@ -4,6 +4,7 @@ import com.ecyrd.speed4j.StopWatch;
 import com.ecyrd.speed4j.StopWatchFactory;
 import io.github.leovr.rtipmidi.AppleMidiServer;
 import io.github.leovr.rtipmidi.MidiReceiverAppleMidiSession;
+import io.github.leovr.rtipmidi.control.AppleMidiControlServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -227,6 +228,9 @@ public class DefaultMidiService implements MidiService {
 
             appleMidiServer = new AppleMidiServer();
 
+         //   AppleMidiControlServer a = new AppleMidiControlServer("tr-midi-apple-service", 5008);
+          //  a.start();
+
             MidiDevice.Info[] midiDeviceInfo = MidiSystem.getMidiDeviceInfo();
             for (MidiDevice.Info deviceInfo : midiDeviceInfo) {
                 if (deviceInfo.getName().equals(this.apple)) {
@@ -248,6 +252,7 @@ public class DefaultMidiService implements MidiService {
 
             //appleMidiServer.addAppleMidiSession(new MidiDeviceAppleMidiSession(midiAppleDevice));
             appleMidiServer.addAppleMidiSession( new MidiReceiverAppleMidiSession( new MidiInputReceiver(this, midiAppleDevice.getDeviceInfo().getName(), verboseLogging)));
+            //appleMidiServer.addAppleMidiSession( new MidiReceiverAppleMidiSession( new MidiInputReceiver(this, midiInDevice.getDeviceInfo().getName(), verboseLogging)));
 
             appleMidiServer.start();
         } catch (final IOException e) {
