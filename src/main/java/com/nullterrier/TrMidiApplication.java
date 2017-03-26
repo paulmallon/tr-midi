@@ -50,7 +50,7 @@ public class TrMidiApplication implements CommandLineRunner {
         if (openMidiDevices && dummy ) {
         while (true) {
           //  midiService.sendSomeMidiNotes();
-             Thread.sleep(10);
+            //Thread.sleep(10);
           }
         }
     }
