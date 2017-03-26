@@ -1,0 +1,1 @@
+mvn install:install-file -Dfile=c:\tmp\nmj.jar -DgroupId=de.humatic.nmj -DartifactId=nmj -Dpackaging=jar -Dversion=1.0
